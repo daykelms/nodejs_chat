@@ -9,6 +9,8 @@ app.use(express.static(__dirname))
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: false }))
 
+mongoose.Promise = Promise
+
 var dbUrl = 'mongodb+srv://user:user@nodejschat-47kgn.mongodb.net/test?retryWrites=true&w=majority'
 
 var Message = mongoose.model('Message', {
@@ -17,39 +19,51 @@ var Message = mongoose.model('Message', {
 })
 
 app.get('/messages', (req, res) => {
-    Message.find({}, (err, messages) =>{
+    Message.find({}, (err, messages) => {
         res.send(messages)
     })
 })
 
-app.post('/messages', (req, res) => {
-    var message = new Message(req.body)
-
-    message.save((err) => {
-        if (err)
-            sendStatus(500)
-
-        Message.findOne({message: 'badword'}, (err, censored) => {
-            if(censored) {
-                console.log('censored words found', censored)
-                Message.remove({_id: censored.id}, (err) =>{
-                    console.log('removed censored message')
-                })
-            }
-        })
-
-        io.emit('message', req.body)
-        res.sendStatus(200)
+app.get('/messages/:user', (req, res) => {
+    var user = req.params.user
+    Message.find({name: user}, (err, messages) => {
+        res.send(messages)
     })
-
 })
+
+app.post('/messages', async (req, res) => {
+
+    try {
+        var message = new Message(req.body)
+
+        var savedMessage = await message.save()
+
+        console.log('saved')
+
+        var censored = await Message.findOne({ message: 'badword' })
+
+        if (censored)
+            await Message.remove({ _id: censored.id })
+        else
+            io.emit('message', req.body)
+
+        res.sendStatus(200)
+    } catch (error) {
+        res.sendStatus(500)
+        return console.error(error)
+    } finally {
+        console.log('message post called')
+    }
+})
+
+
 
 io.on('connection', (socket) => {
     console.log('a user connected')
 })
 
 mongoose.connect(dbUrl, {  useNewUrlParser: true, useUnifiedTopology: true }, (err) => {
-    console.log('mongo db connection', err)
+  console.log('mongo db connection', err)
 })
 
 var server = http.listen(3000, () => {
