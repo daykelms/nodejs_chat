@@ -48,7 +48,7 @@ io.on('connection', (socket) => {
     console.log('a user connected')
 })
 
-mongoose.connect(dbUrl, { useMongoClient: true }, (err) => {
+mongoose.connect(dbUrl, {  useNewUrlParser: true, useUnifiedTopology: true }, (err) => {
     console.log('mongo db connection', err)
 })
 
